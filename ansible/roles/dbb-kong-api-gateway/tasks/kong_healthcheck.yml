@@ -1,0 +1,36 @@
+- name: kong nodes health-check
+  wait_for:
+    port: 8000
+    delay: 5
+
+- name: create health-check service
+  uri:
+    url: "http://localhost:8001/services/"
+    method: POST
+    body_format: json
+    body:
+      name: "health-check"
+      url: "http://kong-node:8000"
+    status_code: 200, 201, 409
+
+- name: create health-check route
+  uri:
+    url: "http://localhost:8001/services/health-check/routes"
+    method: POST
+    body_format: json
+    body:
+      name: "health-check"
+      paths: ["/health-check"]
+    status_code: 200, 201, 409
+
+- name: create health-check termination
+  uri:
+    url: "http://localhost:8001/routes/health-check/plugins"
+    method: POST
+    body_format: json
+    body:
+      name: "request-termination"
+      config:
+        status_code: 200
+        message: "healthy"
+    status_code: 200, 201, 409

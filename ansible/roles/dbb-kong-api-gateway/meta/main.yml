@@ -1,0 +1,7 @@
+galaxy_info:
+  author: BEN MANSOUR Mohamed Rafik
+  description: deploy kong api gateway nodes with their datasources on docker
+  company: None
+  license: license (GPL-2.0-or-later, MIT, etc)
+
+  min_ansible_version: 2.1

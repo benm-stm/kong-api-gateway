@@ -1,0 +1,9 @@
+module.exports = [
+    {
+        "name": "Kong server Seed",
+        "type": "key_auth",
+        "kong_admin_url": "http://kong-node:8001",
+        "kong_api_key": "{{ kong.api_key }}",
+        "health_checks": true,
+    }
+]

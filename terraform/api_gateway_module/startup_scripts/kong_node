@@ -1,0 +1,46 @@
+#!/bin/bash
+## Install docker-ce related packages
+yum install epel-release yum-utils device-mapper-persistent-data lvm2 -y
+
+## Enable docker-ce repo and install docker engine.
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum install docker-ce -y
+systemctl enable docker && systemctl start docker
+
+# prepare machine for ansible
+yum install python3-pip -y
+pip3 install requests
+update-alternatives --install /usr/bin/python python /usr/bin/python3 10
+pip3 install docker
+
+# run kong container
+docker network create kong-net
+docker run -d --name kong-gateway \
+                --network=kong-net \
+                -e "LC_CTYPE=en_US.UTF-8" \
+                -e "LC_ALL=en_US.UTF-8" \
+                -e "KONG_DATABASE=postgres" \
+                -e "KONG_PG_HOST=${datasource_address}" \
+                -e "KONG_PG_USER=${datasource_user}" \
+                -e "KONG_PG_PASSWORD=${datasource_password}" \
+                -e "KONG_ANONYMOUS_REPORTS=off" \
+                -e "KONG_ADMIN_LISTEN=0.0.0.0:8001" \
+                -e "KONG_PROXY_ACCESS_LOG=/dev/stdout" \
+                -e "KONG_ADMIN_ACCESS_LOG=/dev/stdout" \
+                -e "KONG_PROXY_ERROR_LOG=/dev/stderr" \
+                -e "KONG_ADMIN_ERROR_LOG=/dev/stderr" \
+                -e "KONG_PLUGINS=bundled,google-cloud-functions" \
+                -p 8000:8000 \
+                benm-stm/kong-cf:2.7.1
+
+# run konga container
+docker run -d --name konga \
+          --network kong-net \
+          -e "DB_ADAPTER=postgres" \
+          -e "DB_HOST=${datasource_address}" \
+          -e "DB_USER=${datasource_user}" \
+          -e "DB_PASSWORD=${datasource_password}" \
+          -e "DB_DATABASE=konga" \
+          -e "NODE_ENV=production" \
+          -p 1337:1337 \
+          pantsel/konga:0.14.9

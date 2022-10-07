@@ -1,0 +1,35 @@
+- name: bootstrap kong DB
+  docker_container:
+    name: kong-bootstrap
+    image: kong:2.7.1
+    command: kong migrations bootstrap
+    cleanup: true
+    env:
+      KONG_DATABASE: "postgres"
+      KONG_PG_HOST: "{{ db.ip_address }}"
+      KONG_PG_USER: "{{ datasource_username }}"
+      KONG_PG_PASSWORD: "{{ datasource_password }}"
+
+- name: install kong nodes
+  docker_container:
+    name: kong-node
+    image: kong:2.7.1
+    ports:
+     - "8000:8000"
+     - "127.0.0.1:8001:8001"
+    restart_policy: "always"
+    networks:
+      - name: "{{ kong.network }}"
+    env:
+      LC_CTYPE: "en_US.UTF-8"
+      LC_ALL: "en_US.UTF-8"
+      KONG_DATABASE: "postgres"
+      KONG_PG_HOST: "{{ db.ip_address }}"
+      KONG_PG_USER: "{{ datasource_username }}"
+      KONG_PG_PASSWORD: "{{ datasource_password }}"
+      KONG_ANONYMOUS_REPORTS: "off"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_ADMIN_ERROR_LOG: "/dev/stderr"
+      KONG_PROXY_ERROR_LOG: "/dev/stderr"
+      KONG_ADMIN_ACCESS_LOG: "/dev/stdout"
+      KONG_PROXY_ACCESS_LOG: "/dev/stdout"

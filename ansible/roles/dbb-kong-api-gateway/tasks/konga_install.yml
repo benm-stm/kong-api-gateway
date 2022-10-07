@@ -1,0 +1,50 @@
+- name: Bootstrap kong DB
+  docker_container:
+    name: konga-bootstrap
+    image: pantsel/konga:0.14.9
+    command: "-c prepare -a adapter -u postgresql://{{ datasource_username }}:{{ datasource_password }}@{{ db.ip_address }}:5432/konga"
+    cleanup: true
+    env:
+      NODE_ENV: "production"
+      DB_ADAPTER: "postgres"
+      DB_HOST: "{{ db.ip_address }}"
+      DB_USER: "{{ datasource_username }}"
+      DB_PASSWORD: "{{ datasource_password }}"
+      DB_DATABASE: "konga"
+
+- name: Create konga conf path
+  file:
+    path: "{{ konga.conf_path }}"
+    state: directory
+    recurse: yes
+
+- name: create konga user seed
+  template:
+    src: konga_kong_server_seed.j2
+    dest: "{{ konga.conf_path }}/konga_kong_server_seed.data"
+
+- name: create konga user seed
+  template:
+    src: konga_user_seed.j2
+    dest: "{{ konga.conf_path }}/konga_kong_user_seed.data"
+
+- name: install konga side-car
+  docker_container:
+    name: konga
+    image: "pantsel/konga:0.14.9"
+    ports:
+     - "1337:1337"
+    restart_policy: "always"
+    networks:
+      - name: "{{ kong.network }}"
+    volumes:
+      - "{{ konga.conf_path }}:{{ konga.conf_path }}"
+    env:
+      NODE_ENV: "production"
+      KONGA_SEED_KONG_NODE_DATA_SOURCE_FILE: "{{ konga.conf_path }}/konga_kong_server_seed.data"
+      KONGA_SEED_USER_DATA_SOURCE_FILE: "{{ konga.conf_path }}/konga_kong_user_seed.data"
+      DB_ADAPTER: "postgres"
+      DB_HOST: "{{ db.ip_address }}"
+      DB_USER: "{{ datasource_username }}"
+      DB_PASSWORD: "{{ datasource_password }}"
+      DB_DATABASE: "konga"

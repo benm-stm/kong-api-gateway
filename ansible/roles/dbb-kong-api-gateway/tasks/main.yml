@@ -1,0 +1,8 @@
+- name: Install kong
+  include_tasks: kong_install.yml
+
+- name: Add kong healthcheck
+  include_tasks: kong_healthcheck.yml
+
+- name: Install and configure Konga
+  include_tasks: konga_install.yml

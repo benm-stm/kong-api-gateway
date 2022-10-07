@@ -1,0 +1,110 @@
+stages:
+  - iac_plan_dev_api_gateway
+  - iac_apply_dev_api_gateway
+  - init_dev_api_gateway
+  - iac_plan_ope_api_gateway
+  - iac_apply_ope_api_gateway
+  - init_ope_api_gateway
+variables:
+    PY_COLORS: '1'
+    ANSIBLE_FORCE_COLOR: '1'
+
+# terraform templates
+.iac_plan_api_gateway: &iac_plan_api_gateway
+  image:
+    name: "hashicorp/terraform:1.1.9"
+    entrypoint: [""]
+  script:
+    - cd terraform/$ENV
+    - echo ${TERRAFORM_SA} > terraform-account.json
+    - terraform init && terraform plan -var "datasource_password=${DATASOURCE_PWD}" -var "datasource_username=${DATASOURCE_USR}" -out tfplan
+  artifacts:
+    paths:
+    - terraform/$ENV/tfplan
+    expire_in: 1 day
+
+.iac_apply_api_gateway: &iac_apply_api_gateway
+  image:
+    name: "hashicorp/terraform:1.1.9"
+    entrypoint: [""]
+  script:
+    - cd terraform/$ENV
+    - echo ${TERRAFORM_SA} > terraform-account.json
+    - terraform init && terraform apply tfplan
+  when: manual
+
+# ansible api-gateway init template
+.init_api_gateway: &init_api_gateway
+  image: willhallonline/ansible:2.12-ubuntu-20.04
+  script:
+    - export ANSIBLE_VAULT_PASSWORD_FILE=${ANSIBLE_VAULT_PWD}
+    - cd ansible
+    - ansible-playbook -i "inventory_${ENV}" --extra-vars "env=${ENV}" --extra-vars "datasource_password=${DATASOURCE_PWD}" --extra-vars "datasource_username=${DATASOURCE_USR}" playbook.yml
+  when: manual
+
+# runner selection templates (dev/ope)
+.tags_dev_gcp: &tags_dev_gcp
+  tags:
+  - dev
+  - gcp
+  except:
+  - master
+
+.tags_ope_gcp: &tags_ope_gcp
+  tags:
+  - ope
+  - gcp
+  only:
+  - master
+
+# iac stages (dev/ope)
+iac_plan_dev_api_gateway:
+  stage: iac_plan_dev_api_gateway
+  variables:
+    ENV: "dev"
+    DATASOURCE_PWD: "${DATASOURCE_PWD_DEV}"
+    TERRAFORM_SA: "${TERRAFORM_SA_DEV}"
+  <<: *iac_plan_api_gateway 
+  <<: *tags_dev_gcp
+
+iac_plan_ope_api_gateway:
+  stage: iac_plan_ope_api_gateway
+  variables:
+    ENV: "ope"
+    DATASOURCE_PWD: "${DATASOURCE_PWD_OPE}"
+    TERRAFORM_SA: "${TERRAFORM_SA_OPE}"
+  <<: *iac_plan_api_gateway 
+  <<: *tags_ope_gcp
+
+iac_apply_dev_api_gateway:
+  stage: iac_apply_dev_api_gateway
+  variables:
+    ENV: "dev"
+    TERRAFORM_SA: "${TERRAFORM_SA_DEV}"
+  <<: *iac_apply_api_gateway 
+  <<: *tags_dev_gcp
+
+iac_apply_ope_api_gateway:
+  stage: iac_apply_ope_api_gateway
+  variables:
+    ENV: "ope"
+    TERRAFORM_SA: "${TERRAFORM_SA_OPE}"
+  <<: *iac_apply_api_gateway 
+  <<: *tags_ope_gcp
+
+# init stages (dev/ope)
+init_dev_api_gateway:
+  stage: init_dev_api_gateway
+  variables:
+    ENV: "dev"
+    DATASOURCE_PWD: "${DATASOURCE_PWD_DEV}"
+  <<: *init_api_gateway 
+  <<: *tags_dev_gcp
+
+init_ope_api_gateway:
+  stage: init_ope_api_gateway
+  variables:
+    ENV: "ope"
+    DATASOURCE_PWD: "${DATASOURCE_PWD_OPE}"
+  <<: *init_api_gateway 
+  <<: *tags_ope_gcp
